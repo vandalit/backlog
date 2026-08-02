@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Backlog — Gantt (stub)</title>
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --bg-elev: #14171c;
+      --bg-elev-2: #1b1f26;
+      --grid-line: #232830;
+      --grid-line-strong: #2e343d;
+      --text: #e8ebf0;
+      --text-dim: #9aa3b0;
+      --text-faint: #616a78;
+      --border: #262b33;
+      --radius: 10px;
+
+      /* Paleta cítrica saturada para las barras */
+      --c1: #d4ff3f; /* lima eléctrico */
+      --c2: #a8e60a; /* chartreuse */
+      --c3: #ffd100; /* limón */
+      --c4: #ffa600; /* ámbar */
+      --c5: #ff7a00; /* tangerina */
+      --c6: #ff4d00; /* naranja sangre */
+
+      --track-h: 44px;
+      --track-gap: 14px;
+      --label-col: 210px;
+      --months: 12;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 32px 28px 80px;
+    }
+
+    /* ---- Header ---- */
+    header.hero {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+    }
+    .hero h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .hero .dot {
+      width: 11px; height: 11px; border-radius: 50%;
+      background: var(--c1);
+      box-shadow: 0 0 14px 1px var(--c1);
+    }
+    .hero p {
+      margin: 6px 0 0;
+      color: var(--text-dim);
+      font-size: 13px;
+      max-width: 560px;
+    }
+    .badge {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-faint);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px 10px;
+      white-space: nowrap;
+    }
+
+    /* ---- Tag filter bar (PKM) ---- */
+    .filters {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 22px;
+      padding: 14px 16px;
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .filters .flabel {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-faint);
+      margin-right: 4px;
+    }
+    .tag {
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+      padding: 4px 11px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-elev-2);
+      color: var(--text-dim);
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .tag[data-kind="vertical"]::before { content: "◆ "; color: var(--text-faint); }
+    .tag[data-kind="category"]::before { content: "# "; color: var(--text-faint); }
+    .tag:hover { border-color: var(--grid-line-strong); color: var(--text); }
+    .tag.active {
+      background: var(--c1);
+      border-color: var(--c1);
+      color: #0b0d10;
+      font-weight: 600;
+    }
+    .tag.active::before { color: #0b0d10; }
+    .filters .clear {
+      margin-left: auto;
+      font-size: 12px;
+      color: var(--text-faint);
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+    .filters .clear:hover { color: var(--text); }
+
+    /* ---- Gantt ---- */
+    .gantt {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .gantt-scroll { overflow-x: auto; }
+    .gantt-inner { min-width: 900px; }
+
+    .months-row {
+      display: grid;
+      grid-template-columns: var(--label-col) repeat(var(--months), 1fr);
+      border-bottom: 1px solid var(--grid-line-strong);
+    }
+    .months-row .corner {
+      padding: 12px 16px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-faint);
+      border-right: 1px solid var(--grid-line-strong);
+    }
+    .month-cell {
+      padding: 12px 6px;
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      color: var(--text-dim);
+      border-right: 1px solid var(--grid-line);
+    }
+    .month-cell:last-child { border-right: none; }
+
+    .rows { position: relative; }
+
+    .track {
+      display: grid;
+      grid-template-columns: var(--label-col) repeat(var(--months), 1fr);
+      align-items: center;
+      height: calc(var(--track-h) + var(--track-gap));
+      border-bottom: 1px solid var(--grid-line);
+    }
+    .track:last-child { border-bottom: none; }
+
+    .track-label {
+      padding: 0 16px;
+      border-right: 1px solid var(--grid-line-strong);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+      overflow: hidden;
+    }
+    .track-label .name {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .track-label .meta {
+      font-size: 11px;
+      color: var(--text-faint);
+      white-space: nowrap;
+    }
+
+    /* grid background layer inside the timeline area */
+    .track-grid {
+      grid-column: 2 / -1;
+      grid-row: 1;
+      display: grid;
+      grid-template-columns: repeat(var(--months), 1fr);
+      height: 100%;
+      pointer-events: none;
+    }
+    .track-grid span {
+      border-right: 1px solid var(--grid-line);
+    }
+    .track-grid span:last-child { border-right: none; }
+
+    /* the bar itself */
+    .bar-layer {
+      grid-column: 2 / -1;
+      grid-row: 1;
+      display: grid;
+      grid-template-columns: repeat(var(--months), 1fr);
+      align-items: center;
+      height: 100%;
+    }
+    .bar {
+      grid-row: 1;
+      height: var(--track-h);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #0b0d10;
+      cursor: pointer;
+      position: relative;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.18s ease, filter 0.18s ease;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .bar::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 55%);
+      pointer-events: none;
+    }
+    .bar:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px -4px rgba(0,0,0,0.6);
+      filter: brightness(1.06);
+    }
+    .bar .prog {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      background: rgba(0,0,0,0.16);
+    }
+    .bar .bar-text { position: relative; z-index: 1; }
+
+    /* dimmed state when a tag filter is active */
+    .bar.dimmed { opacity: 0.16; filter: grayscale(0.6); }
+    .track.dimmed .track-label { opacity: 0.35; }
+
+    /* ---- Detail card / drawer ---- */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(4,6,9,0.55);
+      backdrop-filter: blur(2px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 40;
+    }
+    .overlay.open { opacity: 1; pointer-events: auto; }
+
+    .card {
+      position: fixed;
+      top: 0; right: 0; bottom: 0;
+      width: 400px;
+      max-width: 92vw;
+      background: var(--bg-elev);
+      border-left: 1px solid var(--border);
+      transform: translateX(100%);
+      transition: transform 0.24s cubic-bezier(0.4,0,0.2,1);
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -20px 0 50px -20px rgba(0,0,0,0.8);
+    }
+    .card.open { transform: translateX(0); }
+    .card-accent { height: 5px; width: 100%; }
+    .card-body { padding: 24px 26px; overflow-y: auto; }
+    .card .close {
+      position: absolute;
+      top: 16px; right: 18px;
+      background: none; border: none;
+      color: var(--text-dim);
+      font-size: 22px; cursor: pointer;
+      line-height: 1;
+    }
+    .card .close:hover { color: var(--text); }
+    .card .status-pill {
+      display: inline-block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--bg-elev-2);
+      color: var(--text-dim);
+      margin-bottom: 12px;
+    }
+    .card h2 { margin: 0 0 6px; font-size: 20px; letter-spacing: -0.01em; }
+    .card .span { color: var(--text-dim); font-size: 13px; margin-bottom: 18px; }
+    .card .desc { color: var(--text); font-size: 13.5px; line-height: 1.65; margin-bottom: 22px; }
+
+    .kv { display: flex; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+    .kv .box {
+      flex: 1; min-width: 120px;
+      background: var(--bg-elev-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .kv .box .k { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); }
+    .kv .box .v { font-size: 15px; font-weight: 600; margin-top: 3px; }
+
+    .card .section-title {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-faint); margin: 0 0 10px;
+    }
+    .card-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+    .card-tags .tag { cursor: default; }
+
+    .progress-wrap { margin-bottom: 4px; }
+    .progress-bar { height: 8px; background: var(--bg-elev-2); border-radius: 999px; overflow: hidden; }
+    .progress-bar > div { height: 100%; border-radius: 999px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+
+    footer.note {
+      margin-top: 20px;
+      color: var(--text-faint);
+      font-size: 12px;
+      text-align: center;
+    }
+    footer.note code { color: var(--text-dim); }
+
+    @media (max-width: 720px) {
+      :root { --label-col: 130px; }
+      .card { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="hero">
+      <div>
+        <h1><span class="dot"></span> Backlog · Roadmap Gantt</h1>
+        <p>Vista horizontal de proyectos en el tiempo. Haz click en una barra para ver detalles, o filtra por etiquetas PKM (verticales ◆ y categorías #) para conectar proyectos relacionados.</p>
+      </div>
+      <span class="badge">stub · datos mock</span>
+    </header>
+
+    <div class="filters" id="filters">
+      <span class="flabel">Etiquetas</span>
+      <!-- tags injected -->
+      <button class="clear" id="clearFilters" hidden>Limpiar filtro ✕</button>
+    </div>
+
+    <div class="gantt">
+      <div class="gantt-scroll">
+        <div class="gantt-inner">
+          <div class="months-row" id="monthsRow">
+            <div class="corner">Proyecto</div>
+            <!-- month cells injected -->
+          </div>
+          <div class="rows" id="rows">
+            <!-- tracks injected -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="note">
+      Cronología ficticia (Ene–Dic). Las fechas reales y la conexión al backend se ajustarán más adelante. Fuente de datos: <code>PROJECTS</code> en este archivo.
+    </footer>
+  </div>
+
+  <!-- Detail drawer -->
+  <div class="overlay" id="overlay"></div>
+  <aside class="card" id="card" aria-hidden="true">
+    <div class="card-accent" id="cardAccent"></div>
+    <button class="close" id="closeCard" aria-label="Cerrar">✕</button>
+    <div class="card-body" id="cardBody"></div>
+  </aside>
+
+  <script>
+    // ---- Mock data (data-driven; swap start/end for real chronology later) ----
+    // Months are 1-indexed (1 = Ene ... 12 = Dic). Bar spans [start, end] inclusive.
+    const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+    const COLORS = ["--c1", "--c2", "--c3", "--c4", "--c5", "--c6"];
+
+    const PROJECTS = [
+      {
+        id: "p1", name: "Rebrand Aurora", start: 1, end: 4, color: "--c1",
+        status: "En curso", progress: 72, owner: "Estudio Norte", budget: "$48k",
+        verticals: ["Creative"], categories: ["Design", "Brand"],
+        desc: "Sistema de identidad completo: logotipo, paleta, tipografía y guidelines. Base para todos los productos derivados del portafolio."
+      },
+      {
+        id: "p2", name: "API Ledger v2", start: 2, end: 6, color: "--c2",
+        status: "En curso", progress: 55, owner: "Plataforma", budget: "$120k",
+        verticals: ["Fintech"], categories: ["Backend", "Infra"],
+        desc: "Reescritura del core de contabilidad con doble entrada, idempotencia y auditoría inmutable. Prerrequisito para el módulo de pagos."
+      },
+      {
+        id: "p3", name: "Design System Citrus", start: 3, end: 7, color: "--c3",
+        status: "En curso", progress: 40, owner: "Estudio Norte", budget: "$65k",
+        verticals: ["Creative", "Fintech"], categories: ["Design", "Frontend"],
+        desc: "Librería de componentes con tokens, dark mode por defecto y documentación viva. Consume la identidad de Rebrand Aurora."
+      },
+      {
+        id: "p4", name: "Pagos Móviles", start: 5, end: 9, color: "--c4",
+        status: "Planificado", progress: 18, owner: "Plataforma", budget: "$210k",
+        verticals: ["Fintech"], categories: ["Mobile", "Backend"],
+        desc: "Checkout nativo iOS/Android sobre API Ledger v2. Incluye tokenización, 3DS y wallet. Depende del cierre del core contable."
+      },
+      {
+        id: "p5", name: "Data Lakehouse", start: 7, end: 11, color: "--c5",
+        status: "Planificado", progress: 8, owner: "Datos & IA", budget: "$180k",
+        verticals: ["Research"], categories: ["Infra", "AI"],
+        desc: "Consolidación analítica: ingesta, modelado y feature store. Habilita los modelos de riesgo y personalización del roadmap."
+      },
+      {
+        id: "p6", name: "Copiloto Riesgo", start: 9, end: 12, color: "--c6",
+        status: "Backlog", progress: 3, owner: "Datos & IA", budget: "$95k",
+        verticals: ["Fintech", "Research"], categories: ["AI"],
+        desc: "Asistente de scoring y detección de fraude sobre el lakehouse. Cierra el ciclo de datos → decisión del ecosistema fintech."
+      }
+    ];
+
+    // ---- Build tag registry (PKM) ----
+    const tagRegistry = new Map(); // label -> kind
+    PROJECTS.forEach(p => {
+      p.verticals.forEach(v => tagRegistry.set(v, "vertical"));
+      p.categories.forEach(c => tagRegistry.set(c, "category"));
+    });
+
+    const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+    let activeTag = null;
+
+    // ---- Render months header ----
+    const monthsRow = document.getElementById("monthsRow");
+    MONTHS.forEach(m => {
+      const c = document.createElement("div");
+      c.className = "month-cell";
+      c.textContent = m;
+      monthsRow.appendChild(c);
+    });
+
+    // ---- Render tracks ----
+    const rows = document.getElementById("rows");
+    PROJECTS.forEach(p => {
+      const track = document.createElement("div");
+      track.className = "track";
+      track.dataset.pid = p.id;
+
+      // label
+      const label = document.createElement("div");
+      label.className = "track-label";
+      label.innerHTML = `<span class="name">${p.name}</span>
+        <span class="meta">${MONTHS[p.start-1]} – ${MONTHS[p.end-1]} · ${p.status}</span>`;
+      track.appendChild(label);
+
+      // grid background
+      const grid = document.createElement("div");
+      grid.className = "track-grid";
+      for (let i = 0; i < 12; i++) grid.appendChild(document.createElement("span"));
+      track.appendChild(grid);
+
+      // bar layer
+      const barLayer = document.createElement("div");
+      barLayer.className = "bar-layer";
+      const bar = document.createElement("div");
+      bar.className = "bar";
+      bar.style.gridColumn = `${p.start} / ${p.end + 1}`;
+      const col = cssVar(p.color);
+      bar.style.background = col;
+      bar.dataset.pid = p.id;
+      bar.innerHTML = `<span class="prog" style="width:${p.progress}%"></span><span class="bar-text">${p.name}</span>`;
+      bar.addEventListener("click", () => openCard(p));
+      barLayer.appendChild(bar);
+      track.appendChild(barLayer);
+
+      rows.appendChild(track);
+    });
+
+    // ---- Render tag filter bar ----
+    const filters = document.getElementById("filters");
+    const clearBtn = document.getElementById("clearFilters");
+    // order: verticals first, then categories
+    const orderedTags = [...tagRegistry.entries()].sort((a, b) => {
+      if (a[1] !== b[1]) return a[1] === "vertical" ? -1 : 1;
+      return a[0].localeCompare(b[0]);
+    });
+    orderedTags.forEach(([label, kind]) => {
+      const t = document.createElement("span");
+      t.className = "tag";
+      t.dataset.kind = kind;
+      t.dataset.tag = label;
+      t.textContent = label;
+      t.addEventListener("click", () => toggleTag(label, t));
+      filters.insertBefore(t, clearBtn);
+    });
+    clearBtn.addEventListener("click", () => toggleTag(null));
+
+    function projectHasTag(p, tag) {
+      return p.verticals.includes(tag) || p.categories.includes(tag);
+    }
+
+    function toggleTag(tag, el) {
+      activeTag = (activeTag === tag) ? null : tag;
+      document.querySelectorAll(".filters .tag").forEach(t => {
+        t.classList.toggle("active", t.dataset.tag === activeTag);
+      });
+      clearBtn.hidden = !activeTag;
+
+      document.querySelectorAll(".track").forEach(track => {
+        const p = PROJECTS.find(x => x.id === track.dataset.pid);
+        const match = !activeTag || projectHasTag(p, activeTag);
+        track.classList.toggle("dimmed", !match);
+        track.querySelector(".bar").classList.toggle("dimmed", !match);
+      });
+    }
+
+    // ---- Detail card ----
+    const overlay = document.getElementById("overlay");
+    const card = document.getElementById("card");
+    const cardBody = document.getElementById("cardBody");
+    const cardAccent = document.getElementById("cardAccent");
+
+    function tagChip(label, kind) {
+      return `<span class="tag" data-kind="${kind}">${label}</span>`;
+    }
+
+    function openCard(p) {
+      const col = cssVar(p.color);
+      cardAccent.style.background = col;
+      const tags = [
+        ...p.verticals.map(v => tagChip(v, "vertical")),
+        ...p.categories.map(c => tagChip(c, "category"))
+      ].join("");
+      cardBody.innerHTML = `
+        <span class="status-pill">${p.status}</span>
+        <h2>${p.name}</h2>
+        <div class="span">${MONTHS[p.start-1]} → ${MONTHS[p.end-1]} · ${p.end - p.start + 1} meses</div>
+        <div class="progress-wrap">
+          <div class="progress-label"><span>Avance</span><span>${p.progress}%</span></div>
+          <div class="progress-bar"><div style="width:${p.progress}%; background:${col}"></div></div>
+        </div>
+        <div class="kv">
+          <div class="box"><div class="k">Responsable</div><div class="v">${p.owner}</div></div>
+          <div class="box"><div class="k">Presupuesto</div><div class="v">${p.budget}</div></div>
+        </div>
+        <p class="desc">${p.desc}</p>
+        <p class="section-title">Etiquetas PKM</p>
+        <div class="card-tags">${tags}</div>
+      `;
+      overlay.classList.add("open");
+      card.classList.add("open");
+      card.setAttribute("aria-hidden", "false");
+    }
+
+    function closeCard() {
+      overlay.classList.remove("open");
+      card.classList.remove("open");
+      card.setAttribute("aria-hidden", "true");
+    }
+    document.getElementById("closeCard").addEventListener("click", closeCard);
+    overlay.addEventListener("click", closeCard);
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closeCard(); });
+  </script>
+</body>
+</html>
